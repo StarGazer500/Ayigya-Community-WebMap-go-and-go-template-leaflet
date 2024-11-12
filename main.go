@@ -3,7 +3,13 @@ package main
 import (
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/db"
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/tables"
+
+	// "fmt"
+
+	// "Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/models"
+	// "fmt"
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/routers"
+
 	"github.com/gin-gonic/gin"
 )
 

@@ -41,7 +41,7 @@ func SaveUser(db *sql.DB, user UserDetails) (sql.Result, error) {
 
 	columns := []string{"firstname", "surname", "email", "password1"}
 
-	data, err := models.Insert(db, tableName, columns, user.Firstname, user.Surname, user.Email, user.Password1)
+	data, err := models.InsertOne(db, tableName, columns, user.Firstname, user.Surname, user.Email, user.Password1)
 
 	if err != nil {
 
