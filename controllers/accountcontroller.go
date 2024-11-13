@@ -3,12 +3,11 @@ package controllers
 import (
 	// "Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/db"
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/db"
+	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/middlewares"
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/models"
 	"database/sql"
 	"fmt"
 	"net/http"
-
-	// "reflect"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,20 +20,26 @@ type UserDetails struct {
 	Email     string `form:"email" json:"email"  xml:"email" binding:"required"`
 }
 
-// func Profile(ctx *gin.Context) {
-// 	// Sample user data for profile view
-// 	registerData := UserDetails{
-// 		Firstname: "Martin",
-// 		Surname:   "Aborgeh",
-// 		Password1: "1235",
-// 		Password2: "1235",
-// 	}
+type ProfileDeTails struct {
+	Firstname string `form:"firstname" json:"firstname"  xml:"firstname" binding:"required"`
+	Surname   string `form:"surname" json:"surname"  xml:"surname" binding:"required"`
+	Password1 string `form:"password1" json:"password1"  xml:"password1" binding:"required"`
+	Email     string `form:"email" json:"email"  xml:"email" binding:"required"`
+}
 
-//		// Render the profile page with the user's details
-//		ctx.HTML(http.StatusOK, "profile.html", registerData)
-//	}
-//
-// Insert(db *sql.DB, tablename string, columns []string, args ...interface{})
+func Profile(ctx *gin.Context) {
+
+	if ctx.Request.Method == http.MethodGet {
+
+		// if err := ctx.ShouldBind(&form); err != nil {
+		// 	ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		// }
+
+		ctx.HTML(http.StatusOK, "profile.html", gin.H{"profilepage": "opened"})
+	}
+
+}
 func SaveUser(db *sql.DB, user UserDetails) (sql.Result, error) {
 
 	tableName := models.UserModel.TableName
@@ -109,15 +114,47 @@ func LoginUser(ctx *gin.Context) {
 
 		fmt.Println(db.PG.Db, models.UserModel.TableName, form.Email)
 
-		rows, err := models.FindOne(db.PG.Db, models.UserModel.TableName, "email", form.Email)
+		result, err := models.FindOne(db.PG.Db, models.UserModel.TableName, "email", form.Email)
 
 		if err != nil {
 			fmt.Println("Querying errror occured", err)
 		}
 
-		fmt.Println(rows, "returned succesfully")
+		for _, user := range result {
 
-		ctx.JSON(http.StatusOK, gin.H{"status": "You have logged in Successfully"})
+			middlewares.Claim = middlewares.TokenClaimStruct{
+				MyAuthServer:    "AuthServer",
+				AuthUserEmail:   user["email"].(string),
+				AuthUserSurname: user["surname"].(string),
+				AuthUserId:      user["id"].(string),
+				// AuthExp:         middlewares.GenerateExpiryTime(120),
+			}
+
+		}
+
+		access_token, aerr := middlewares.GenerateAccessToken(middlewares.Claim)
+
+		refresh_token, rerr := middlewares.GenerateRefreshToken(middlewares.Claim)
+
+		if aerr != nil {
+			fmt.Println("token generation error")
+			return
+		} else if rerr != nil {
+			fmt.Println("token generation error")
+			return
+		}
+
+		// fmt.Println("access", access_token)
+		// fmt.Println("refresh", refresh_token)
+
+		ctx.SetCookie("access", access_token, 3600, "/", "localhost", false, true)
+		ctx.SetCookie("refresh", refresh_token, 3600, "/", "localhost", false, true)
+
+		// fmt.Println(result, "returned succesfully")
+
+		// ctx.JSON(http.StatusOK, gin.H{"status": "You have logged in Successfully"})
+		// ctx.HTML(http.StatusOK, "Profile.html", gin.H{})
+		ctx.Redirect(http.StatusFound, "/account/profile")
 
 	} else {
 		// If the request is not a POST, show the registration form with empty data

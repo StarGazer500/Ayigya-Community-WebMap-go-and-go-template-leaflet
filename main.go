@@ -4,11 +4,13 @@ import (
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/db"
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/tables"
 
-	// "fmt"
+	"fmt"
 
 	// "Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/models"
 	// "fmt"
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/routers"
+
+	"github.com/joho/godotenv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +28,10 @@ func deinit() {
 
 func main() {
 	// Initialize Gin engine
+
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Error loading .env file")
+	}
 
 	defer deinit()
 

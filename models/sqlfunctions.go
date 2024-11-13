@@ -112,7 +112,12 @@ func InsertMany(db *sql.DB, tablename string, columns []string, rows [][]interfa
 	return result, nil
 }
 
-func FindOne(db *sql.DB, tableName string, queryField string, queryValue string) (*sql.Rows, error) {
+// type ReturnedData struct {
+// 	ColumnName string
+// 	Value      interface{}
+// }
+
+func FindOne(db *sql.DB, tableName string, queryField string, queryValue string) ([]map[string]interface{}, error) {
 
 	// Correctly format the query string with parameterized query to avoid SQL injection
 	querystring := fmt.Sprintf("SELECT * FROM \"%s\" WHERE %s = $1", tableName, queryField)
@@ -124,16 +129,58 @@ func FindOne(db *sql.DB, tableName string, queryField string, queryValue string)
 	}
 	defer rows.Close()
 
-	// Check if the query returned any rows
-	if !rows.Next() {
-		// If no rows found, return an error
-		return nil, fmt.Errorf("user not found with %s = %s", queryField, queryValue)
+	columns, err := rows.Columns()
+
+	if err != nil {
+		fmt.Println("Error getting columns: ", err)
 	}
+
+	var result []map[string]interface{}
+
+	// Initialize the slice with pointers to sql.RawBytes for each column
+	rawValues := make([]interface{}, len(columns))
+	for i := range rawValues {
+		rawValues[i] = new(sql.RawBytes)
+	}
+
+	// Loop through each row
+	for rows.Next() {
+		// Scan the row values into rawValues
+		err := rows.Scan(rawValues...)
+		if err != nil {
+			fmt.Println("Error scanning row: ", err)
+		}
+
+		// Create a map to hold the column name and value for this row
+		rowMap := make(map[string]interface{})
+
+		// Loop over the columns and populate the map
+		for i, col := range columns {
+			// Type assert to sql.RawBytes
+			rawBytes := rawValues[i].(*sql.RawBytes)
+
+			// Convert []byte to a string for text data (or other types as needed)
+			// Here, we handle text columns as strings.
+			rowMap[col] = string(*rawBytes) // You can enhance this logic based on column types
+		}
+
+		// Append the map to the result slice
+		result = append(result, rowMap)
+	}
+
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		fmt.Println("Error during row iteration: ", err)
+	}
+
+	//
+
+	// fmt.Println("yh", rows.Next())
 
 	// If rows are returned, you can scan the first row (for example, assuming the table has 'email' and 'password' columns)
 
 	// Since we're only looking for one row, return rows as the result
-	return rows, nil
+	return result, nil
 }
 
 // AddColumnIfNotExists checks if the column exists in the table, and if not, adds it.
