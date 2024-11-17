@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+
+    <link rel="stylesheet" href="/staticfiles/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/staticfiles/css/mapdisplay.css">
+
+    <link rel="stylesheet" href="/staticfiles/leaflet/leaflet.css" />
+
+    <link rel="stylesheet" href="/staticfiles/css/leafletmap.css" />
+    
+    
+</head>
+  <body>
+
+    <div class="wrapper">
+        <!-- Sidebar  -->
+        <nav id="sidebar">
+            <!-- <div class="sidebar-header">
+                <h3>Bootstrap Sidebar</h3>
+            </div> -->
+            <div  style="margin-top: 7px;"><p style="color: white; text-align: center;">Advanced Query</p></div>
+            <ul class="list-unstyled components">
+                
+                <li class="active">
+                    <input placeholder="Feature Layer">
+                    
+                </li>
+                <li>
+                    <input placeholder="Attribute Layer">
+                </li>
+                <li>
+                   <input placeholder=" Select Operator">
+                </li>
+                <li>
+                    <input placeholder="Enter Value">
+                </li>
+                <li>
+                    <p>results will be show here</p>
+                </li>
+            </ul>
+
+           
+        </nav>
+
+        <!-- Page Content  -->
+        <div id="content">
+
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+
+                    <button type="button" id="sidebarCollapse" class="btn btn-info">
+                        <i class="fas fa-align-left"></i>
+                        <span id="sidebarButtonText">Close</span>
+                    </button>
+                    <button class="btn btn-dark d-inline-block d-lg-none ml-auto" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <i class="fas fa-align-justify"></i>
+                    </button>
+
+                
+                </div>
+            </nav>
+            <div >
+
+                <div id="map"></div>
+
+            </div>
+
+           
+            
+        </div>
+    </div>
+
+   
+   
+
+
+    <script src="/staticfiles/js/jquery.js" ></script>
+    <script src="/staticfiles/bootstrap/js/bootstrap.bundle.min.js" ></script>
+    <script src="/staticfiles/leaflet/leaflet.js" ></script>
+    <script src="/staticfiles/js/mapdisplay.js" ></script>
+    <script src="/staticfiles/js/leafletmap.js" ></script>
+    
+    <script>
+    $(document).ready(function () {
+  // Set the sidebar to be closed by default
+  $('#sidebar').addClass('active');
+  $('#sidebarButtonText').text('Open');
+
+  $('#sidebarCollapse').on('click', function () {
+   
+    if ($('#sidebar').hasClass('active')) {
+      $('#sidebarButtonText').text('Open');
+    } else {
+      $('#sidebarButtonText').text('Close');
+    }
+  });
+});
+   </script>
+    
+
+    
+    
+    
+</body>
+</html>

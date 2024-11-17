@@ -43,13 +43,13 @@ func InsertOne(db *sql.DB, tablename string, columns []string, args ...interface
 	// Execute the query with the provided arguments
 	data, err := db.Exec(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("error saving data to the database: %v", err)
+		return nil, err
 	}
 
 	// Get the number of rows affected
 	rowsAffected, err := data.RowsAffected()
 	if err != nil {
-		return nil, fmt.Errorf("error getting rows affected: %v", err)
+		return nil, err
 	}
 
 	// Print meaningful details

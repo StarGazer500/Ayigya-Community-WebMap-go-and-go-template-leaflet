@@ -4,23 +4,17 @@
 // }
 // fmt.Println(data)
 
-
-
 // data, err :=models.DeleteColumnIfExists(db.PG.Db, models.UserModel.TableName, "phone1")
 // 	if err != nil {
 // 		fmt.Println("adding table error occured", err)
 // 	}
 // 	fmt.Println(data)
 
-
-
-// err := models.DeleteRowByID(db.PG.Db, models.UserModel.TableName, 1) 
+// err := models.DeleteRowByID(db.PG.Db, models.UserModel.TableName, 1)
 // 	if err != nil {
 // 		fmt.Println("adding table error occured", err)
 // 	}
 // 	fmt.Println(err)
-
-
 
 // err := models.DeleteRowByColumn(db.PG.Db, models.UserModel.TableName, "email", "ab@gmail.com")
 
@@ -29,14 +23,11 @@
 // 	}
 // 	fmt.Println(err)
 
-
 // tableName := models.UserModel.TableName
 
 // 	columns := []string{"firstname", "surname", "email", "password1"}
 
 // 	data, err := models.InsertOne(db, tableName, columns, user.Firstname, user.Surname, user.Email, user.Password1)
-
-
 
 // createTableQuery := `
 // 		CREATE TABLE IF NOT EXISTS "UserSQLModel" (
@@ -51,7 +42,6 @@
 // 	UserModel = &UserTable{TableName: "UserSQLModel"}
 // 	CreateTable(createTableQuery)
 
-
 // columns := []string{"firstname", "surname", "email", "password1"}
 // values := []interface{}{"Mawuli", "Kwadwo", "email@gmail.com", "1111"}
 
@@ -61,7 +51,6 @@
 // }
 
 // fmt.Println("update result",data)
-
 
 // columns := []string{"firstname", "surname", "email", "password1"}
 // rows := [][]interface{}{
@@ -76,3 +65,10 @@
 // } else {
 // fmt.Println("Rows inserted successfully.",result)
 // }
+
+// data,err := models.FindOne(db.PG.Db, models.OtherPolygonModel.TableName, "exact_use", "Car park")
+// if err!=nil{
+// 	fmt.Println("Error occured",err)
+// }
+
+// fmt.Println(data)
