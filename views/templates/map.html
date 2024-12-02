@@ -25,23 +25,29 @@
             </div> -->
             <div  style="margin-top: 7px;"><p style="color: white; text-align: center;">Advanced Query</p></div>
             <ul class="list-unstyled components">
-                
-                <li class="active">
-                    <input placeholder="Feature Layer">
-                    
+                <!-- Feature Layer Selection -->
+            <li class="">
+                <select id="featureLayerSelect" class="form-control">
+                    <option value="">Select Feature Layer</option>
+                </select>
+            </li>
+
+            <!-- This will be replaced by a dynamically populated select dropdown for Attribute Layer -->
+            <li id="attributeLayerContainer">
+                <!-- The select dropdown will be inserted here after the user selects a feature layer -->
+                <input id="attributeLayerInput" placeholder="Attribute Layer" disabled />
+            </li>
+            <li id="operatorContainer">
+                <!-- The select dropdown for operators will be inserted here -->
+                <input placeholder="Select Operator" disabled />
+            </li>
+                <li>
+                    <input class = "search-value" placeholder="Enter Value">
                 </li>
                 <li>
-                    <input placeholder="Attribute Layer">
+                    <input placeholder="Results">
                 </li>
-                <li>
-                   <input placeholder=" Select Operator">
-                </li>
-                <li>
-                    <input placeholder="Enter Value">
-                </li>
-                <li>
-                    <p>results will be show here</p>
-                </li>
+                <button class="submit-query" style="margin-left: 120px;margin-right: 150px;">Submit</button>
             </ul>
 
            
@@ -75,6 +81,7 @@
         </div>
     </div>
 
+
    
    
 
@@ -99,6 +106,197 @@
       $('#sidebarButtonText').text('Close');
     }
   });
+
+  $.ajax({
+            url: '/map/featurelayers', // Same endpoint for fetching data
+            type: 'GET',
+            dataType: 'json',
+            contentType: "application/json",
+            success: function (response) {
+                if (response.success) {
+                    // Check if the data contains feature layers (building, other_polygon_structure)
+                    var layers = response.data; // { buildingTable: "building", otherPolygonTable: "other_polygon_structure" }
+
+                    // Dynamically create options for the select dropdown
+                    var select = $('#featureLayerSelect');
+                    select.empty(); // Clear existing options
+                    select.append('<option value="">Select Feature Layer</option>'); // Add a default option
+
+                    // Add the building and other_polygon_structure options
+                    if (layers.buildingTable) {
+                        select.append('<option value="building">' + layers.buildingTable + '</option>');
+                    }
+                    if (layers.otherPolygonTable) {
+                        select.append('<option value="other_polygon_structure">' + layers.otherPolygonTable + '</option>');
+                    }
+                } else {
+                    alert("Error: " + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                var errorMessage = xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || 'An unknown error occurred.';
+                alert("Error: " + errorMessage);
+            }
+        });
+
+// Declare a global variable to store the selected feature layer
+let selectedLayer = null;
+let selectedAttribute = null;
+let selectedOperator = null;
+
+// Handle feature layer selection change
+$('#featureLayerSelect').on('change', function () {
+    selectedLayer = $(this).val();  // Store the selected layer
+    console.log("Selected Layer:", selectedLayer);
+
+    // Only send a request if a layer is selected
+    if (selectedLayer) {
+        $.ajax({
+            url: '/map/featureattributes',  // The endpoint to get attributes for the selected layer
+            type: 'POST',
+            data: JSON.stringify({ selectedLayer: selectedLayer }),  // Send the selected layer as JSON
+            contentType: "application/json",
+            dataType: 'json',
+            success: function (response) {
+                if (response.success) {
+                    console.log("Layer selected successfully:", response.data);
+
+                    // Dynamically populate attribute selector based on the response data
+                    var attributes = response.data;  // The response data should be an object with columns as keys
+                    var selectContainer = $('#attributeLayerContainer');  // The container for the attribute layer dropdown
+
+                    // Clear the existing content in the container (i.e., the current input)
+                    selectContainer.empty();
+
+                    // Create a new select dropdown for attributes
+                    var select = $('<select id="attributeLayerSelect" class="form-control"></select>');
+                    select.append('<option value="">Select Attribute</option>');  // Default option
+
+                    // Dynamically populate the attribute options from the response data
+                    $.each(attributes, function (key, value) {
+                        select.append('<option value="' + key + '">' + value + '</option>');
+                    });
+
+                    // Append the new dropdown to the container
+                    selectContainer.append(select);
+
+                } else {
+                    alert("Error: " + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                var errorMessage = xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || 'An unknown error occurred.';
+                alert("Error: " + errorMessage);
+            }
+        });
+    }
+});
+
+
+
+$('#attributeLayerContainer').on('change', '#attributeLayerSelect', function () {
+    selectedAttribute = $(this).find('option:selected').text();  // This updates the global selectedAttribute
+    console.log("Selected Attribute:", selectedAttribute);
+    console.log("Selected Layer:", selectedLayer);
+
+    // Check if both layer and attribute are selected before sending the request
+    if (selectedLayer && selectedAttribute) {
+        $.ajax({
+            url: '/map/featureoperatures',  // Endpoint for operators
+            type: 'POST',
+            data: JSON.stringify({
+                selectedLayer: selectedLayer,
+                selectedAttribute: selectedAttribute
+            }),
+            contentType: "application/json",
+            dataType: 'json',
+            success: function (response) {
+                if (response.success) {
+                    console.log("Attribute selected successfully:", response.data);
+
+                    var operators = response.data;  // List of operators
+                    var operatorContainer = $('#operatorContainer');
+                    operatorContainer.empty();
+
+                    var operatorSelect = $('<select id="operatorSelect" class="form-control"></select>');
+                    operatorSelect.append('<option value="">Select Operator</option>');
+                    $.each(operators, function (index, operator) {
+                        operatorSelect.append('<option value="' + operator + '">' + operator + '</option>');
+                    });
+                    operatorContainer.append(operatorSelect);
+                } else {
+                    alert("Error: " + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                var errorMessage = xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || 'An unknown error occurred.';
+                alert("Error: " + errorMessage);
+            }
+        });
+    } else {
+        alert("Please select both a feature layer and an attribute.");
+    }
+});
+
+
+
+
+$('#operatorContainer').on('change', '#operatorSelect', function () {
+    selectedOperator = $(this).find('option:selected').text();  // Get the selected operator and update the global variable
+    console.log("Selected Operator:", selectedOperator);
+    console.log("Selected Attribute:", selectedAttribute);
+    console.log("Selected Layer:", selectedLayer);
+
+    // Now you can proceed with whatever logic you need to handle the operator selection
+});
+
+$('.submit-query').click(function (e) {
+    // e.preventDefault(); // Prevent default form submission
+    
+    // Collect the data from the signup form
+    var searchValue = $('.search-value').val()
+    var queryData = {
+        selectedLayer: selectedLayer,
+        selectedAttribute: selectedAttribute ,
+        selectedOperator:selectedOperator,
+        searchValue:searchValue
+
+        
+    };
+
+    console.log("query data",queryData)
+
+   
+    $.ajax({
+        url: '/map/makeqquery', // Your server-side signup URL
+        type: 'POST',
+        dataType: 'json', // Expectinggid JSON response
+        contentType: 'application/json',
+        data: JSON.stringify(queryData),
+        success: function (response) {
+            if (response.success){
+                console.log("success full post",response.data[0].geom.coordinates)
+                var data = response.data
+                addGeoJsonLayer(data)
+                // for(var i=0;i<response.data.length;i++){
+                //     addGeoJsonLayer(data[i].geom)
+                // }
+               
+            }
+            // Handle the success response
+            alert("someting happened successful!");
+        },
+        error: function (xhr, status, error) {
+                var errorMessage = xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || 'An unknown error occurred.';
+                alert("Error: " + errorMessage);
+            }
+    });
+});
+
+
+
+
+
 });
    </script>
     

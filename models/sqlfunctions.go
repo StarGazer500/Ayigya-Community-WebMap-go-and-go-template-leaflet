@@ -2,10 +2,24 @@ package models
 
 import (
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/db"
+	// "reflect"
+	// "bytes"
 	"database/sql"
-	"strings"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+
+	"github.com/twpayne/go-geom/encoding/geojson"
 
 	"fmt"
+	"strings"
+
+	// "github.com/twpayne/go-geom/wkb"
+	"strconv"
+
+	"github.com/twpayne/go-geom"
+	"github.com/twpayne/go-geom/encoding/ewkb"
+	"github.com/twpayne/go-geom/encoding/wkb"
 )
 
 func CreateTable(querystring string) {
@@ -442,4 +456,258 @@ func UpdateOne(db *sql.DB, tablename string, columns []string, args []interface{
 	// Print meaningful details
 	fmt.Printf("Rows affected: %d\n", rowsAffected)
 	return result, nil
+}
+
+func GetColumnDataType(db *sql.DB, table, column string) (string, error) {
+	// Construct query to get column data type from information_schema.columns
+	query := `
+		SELECT data_type
+		FROM information_schema.columns
+		WHERE table_name = $1 AND column_name = $2
+	`
+	var dataType string
+	err := db.QueryRow(query, table, column).Scan(&dataType)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine data type: %v", err)
+	}
+	return dataType, nil
+}
+
+func PerformOperation(db *sql.DB, table, column, operator, value string) ([]map[string]interface{}, error) {
+
+	// Step 4: Build the SQL query based on the operator
+	var query string
+	var args []interface{}
+
+	// Handle different operators based on the column type
+	switch operator {
+	case "Equality (=)":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s = $1", table, column)
+		args = append(args, value)
+	case "Less than (<)":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s < $1", table, column)
+		args = append(args, value)
+	case "Less than or equal to (<=)":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s <= $1", table, column)
+		args = append(args, value)
+	case "Greater than (>)":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s > $1", table, column)
+		args = append(args, value)
+	case "Greater than or equal to (>=)":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s >= $1", table, column)
+		args = append(args, value)
+	case "ILIKE":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s ILIKE $1", table, column)
+		args = append(args, "%"+value+"%")
+	case "LIKE":
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s LIKE $1", table, column)
+		args = append(args, "%"+value+"%")
+	case "BETWEEN":
+		// For "BETWEEN", assume value is in the form "start_value AND end_value"
+		parts := strings.Split(value, " AND ")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid value for BETWEEN operation")
+		}
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s BETWEEN $1 AND $2", table, column)
+		args = append(args, parts[0], parts[1])
+	default:
+		return nil, fmt.Errorf("operator '%s' is not supported", operator)
+	}
+
+	// Step 5: Execute the query
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %v", err)
+	}
+	defer rows.Close()
+
+	// Step 6: Fetch the results
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column names: %v", err)
+	}
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		// Create a slice of empty interfaces to hold the row values
+		columnPointers := make([]interface{}, len(columns))
+		for i := range columnPointers {
+			columnPointers[i] = new([]byte)
+		}
+
+		// Scan the row into the column pointers
+		if err := rows.Scan(columnPointers...); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %v", err)
+		}
+
+		// Convert row to map
+		result := make(map[string]interface{})
+		for i, col := range columns {
+
+			value := columnPointers[i].(*[]byte)
+
+			if col == "shape__len" || col == "shape__are" {
+				// fmt.Println("shape", (string(*value)))
+				tofloat, err := strconv.ParseFloat(string(*value), 64)
+				if err != nil {
+					fmt.Println("conversion failed", err)
+				} else {
+					result[col] = tofloat
+					// fmt.Println("updated", result[col])
+				}
+
+				// res, err :=  byteSliceToFloat1(value)
+				// if err != nil {
+
+				// 	fmt.Println("somthing happended when converting to float")
+				// } else {
+				// 	fmt.Println("Converted float", res)
+
+				// }
+
+			} else if col == "geom" {
+				// fmt.Println("geom", (string(*value)))
+				geodata, err := processGeometryData(*value)
+				if err != nil {
+					fmt.Println("error", err)
+				}
+
+				// fmt.Println("geojson data",string(geodata))
+				result[col] = json.RawMessage(geodata)
+				// err :=convertWKBToGeoJSON(*value)
+				// if err!=nil{
+				// 	fmt.Println("error is",err)
+				// }
+
+				// fmt.Println(err)
+				// Now parse the raw bytes (WKB format)
+				//   if err := processGeometry(*value); err != nil {
+				// 	fmt.Println(err)
+				// }
+
+				// geomValue, err := processGeometryColumn(value)
+				// if err != nil {
+				//     fmt.Printf("Geometry processing error: %v\n", err)
+				//     result[col] = string(*value) // Fallback to raw string
+				// } else {
+				//     result[col] = geomValue
+				// }
+				// fmt.Println(string(b))
+
+				// if err != nil {
+				// 	fmt.Println("something happened when converting to geom")
+				// } else {
+				// 	fmt.Println("converted point is", res)
+				// }
+
+			}
+
+			// result[col] = *(columnPointers[i].(*interface{}))
+		}
+
+		results = append(results, result)
+	}
+	fmt.Println("results", results)
+	return results, nil
+}
+
+func cleanAndParseWKB(rawData []byte) ([]byte, error) {
+	// Try decoding from hex
+	decodedHex, err := hex.DecodeString(string(rawData))
+	if err == nil {
+		// fmt.Println("Successfully decoded from hex")
+		return decodedHex, nil
+	}
+
+	// Try base64 decoding
+	decodedBase64, err := base64.StdEncoding.DecodeString(string(rawData))
+	if err == nil {
+		// fmt.Println("Successfully decoded from base64")
+		return decodedBase64, nil
+	}
+
+	// If direct hex string (ASCII representation)
+	decodedASCIIHex, err := hex.DecodeString(strings.ReplaceAll(string(rawData), " ", ""))
+	if err == nil {
+		// fmt.Println("Successfully decoded from ASCII hex")
+		return decodedASCIIHex, nil
+	}
+
+	return nil, fmt.Errorf("could not decode WKB data")
+}
+
+func processGeometryData(rawData []byte) ([]byte, error) {
+	// Clean and decode the data
+	cleanData, err := cleanAndParseWKB(rawData)
+	if err != nil {
+		return nil, fmt.Errorf("data decoding failed: %v", err)
+	}
+
+	// Now try parsing with various methods
+	// Option 1: Try EWKB
+
+	geometry, err := ewkb.Unmarshal(cleanData)
+	if err != nil {
+		// Option 2: Try standard WKB
+		geometry, err = wkb.Unmarshal(cleanData)
+		if err != nil {
+			return nil, fmt.Errorf("geometry parsing failed: %v", err)
+		}
+	}
+
+	// fmt.Println(ConvertGeometryToXY(geometry))
+
+	// Convert to GeoJSON if needed
+	geoJSONGeom, err := geojson.Marshal(ConvertGeometryToXY(geometry))
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal to GeoJSON: %v", err)
+	}
+
+	//  fmt.Println(geoJSONGeom)
+
+	return geoJSONGeom, nil
+}
+func ConvertGeometryToXY(geometry geom.T) geom.T {
+	// Create a new MultiPolygon with a 2D layout (geom.XY)
+	multiPolygon := geom.NewMultiPolygon(geom.XY)
+
+	// Perform type assertion inside the function
+	switch g := geometry.(type) {
+	case *geom.MultiPolygon:
+		// Iterate through each Polygon in the MultiPolygon using Coords()
+		for _, polygon := range g.Coords() {
+			var coordinates []geom.Coord
+
+			// Iterate through each ring of the Polygon
+			for _, ring := range polygon {
+				// Extract each point (X, Y) from the ring and append to coordinates
+				for i := 0; i < len(ring); i++ {
+					// Extract only X and Y, ignoring Z and M
+					x, y := ring[i][0], ring[i][1]
+
+					coordinates = append(coordinates, geom.Coord{x, y})
+				}
+			}
+
+			// Create a new Polygon with the 2D layout (XY)
+			newPolygon := geom.NewPolygon(geom.XY)
+			// Set the coordinates for the polygon (set only the 2D points)
+			newPolygon.SetCoords([][]geom.Coord{coordinates})
+
+			// Add the polygon to the MultiPolygon
+			multiPolygon.Push(newPolygon) // Push to MultiPolygon (not append)
+		}
+
+	default:
+		// Handle unsupported geometry types
+		fmt.Println("Unsupported geometry type:", g)
+		return nil
+	}
+
+	multiPolygon.SetSRID(4326)
+
+	// fmt.Println("the srid",multiPolygon.SRID())
+	// fmt.Println(multiPolygon)
+
+	return multiPolygon
 }
