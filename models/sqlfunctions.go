@@ -2,7 +2,7 @@ package models
 
 import (
 	"Ayigya-Community-WebMap-go-and-go-template-geoserver-leaflet/inits/db"
-	// "reflect"
+	
 	// "bytes"
 	"database/sql"
 	"encoding/base64"
@@ -553,17 +553,7 @@ func PerformOperation(db *sql.DB, table, column, operator, value string) ([]map[
 					fmt.Println("conversion failed", err)
 				} else {
 					result[col] = tofloat
-					// fmt.Println("updated", result[col])
 				}
-
-				// res, err :=  byteSliceToFloat1(value)
-				// if err != nil {
-
-				// 	fmt.Println("somthing happended when converting to float")
-				// } else {
-				// 	fmt.Println("Converted float", res)
-
-				// }
 
 			} else if col == "geom" {
 				// fmt.Println("geom", (string(*value)))
@@ -572,42 +562,18 @@ func PerformOperation(db *sql.DB, table, column, operator, value string) ([]map[
 					fmt.Println("error", err)
 				}
 
-				// fmt.Println("geojson data",string(geodata))
 				result[col] = json.RawMessage(geodata)
-				// err :=convertWKBToGeoJSON(*value)
-				// if err!=nil{
-				// 	fmt.Println("error is",err)
-				// }
 
-				// fmt.Println(err)
-				// Now parse the raw bytes (WKB format)
-				//   if err := processGeometry(*value); err != nil {
-				// 	fmt.Println(err)
-				// }
-
-				// geomValue, err := processGeometryColumn(value)
-				// if err != nil {
-				//     fmt.Printf("Geometry processing error: %v\n", err)
-				//     result[col] = string(*value) // Fallback to raw string
-				// } else {
-				//     result[col] = geomValue
-				// }
-				// fmt.Println(string(b))
-
-				// if err != nil {
-				// 	fmt.Println("something happened when converting to geom")
-				// } else {
-				// 	fmt.Println("converted point is", res)
-				// }
-
+			}else{
+				result[col] =string(*value)
 			}
 
-			// result[col] = *(columnPointers[i].(*interface{}))
+			// 
 		}
 
 		results = append(results, result)
 	}
-	fmt.Println("results", results)
+	fmt.Println(results)
 	return results, nil
 }
 
@@ -706,8 +672,101 @@ func ConvertGeometryToXY(geometry geom.T) geom.T {
 
 	multiPolygon.SetSRID(4326)
 
-	// fmt.Println("the srid",multiPolygon.SRID())
-	// fmt.Println(multiPolygon)
-
 	return multiPolygon
 }
+
+
+
+
+func SearchAllTables(db *sql.DB, searchTerm string) ([]map[string]interface{}, error) {
+    // Query to get all table names and column names from the information schema
+    query := `SELECT table_name, column_name 
+              FROM information_schema.columns 
+              WHERE table_schema = 'public'` // You can specify a schema like 'public' or leave it out
+
+    rows, err := db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    // Loop through each row in the result
+	var results []map[string]interface{}
+    for rows.Next() {
+        var tableName, columnName string
+        if err := rows.Scan(&tableName, &columnName); err != nil {
+            return nil,err
+        }
+
+		querystring := fmt.Sprintf("SELECT * FROM \"%s\" WHERE %s = $1", tableName, columnName)
+
+		// Execute the query with the parameterized query
+		rows, err := db.Query(querystring, searchTerm)
+	
+		if err != nil {
+			continue
+			// return nil, fmt.Errorf("query execution failed: %v", err)
+		}
+		defer rows.Close()
+	
+		// Step 6: Fetch the results
+		columns, err := rows.Columns()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get column names: %v", err)
+		}
+	
+		
+		for rows.Next() {
+			// Create a slice of empty interfaces to hold the row values
+			columnPointers := make([]interface{}, len(columns))
+			for i := range columnPointers {
+				columnPointers[i] = new([]byte)
+			}
+	
+			// Scan the row into the column pointers
+			if err := rows.Scan(columnPointers...); err != nil {
+				return nil, fmt.Errorf("failed to scan row: %v", err)
+			}
+	
+			// Convert row to map
+			result := make(map[string]interface{})
+			for i, col := range columns {
+	
+				value := columnPointers[i].(*[]byte)
+	
+				if col == "shape__len" || col == "shape__are" {
+					// fmt.Println("shape", (string(*value)))
+					tofloat, err := strconv.ParseFloat(string(*value), 64)
+					if err != nil {
+						fmt.Println("conversion failed", err)
+					} else {
+						result[col] = tofloat
+					}
+	
+				} else if col == "geom" {
+					// fmt.Println("geom", (string(*value)))
+					geodata, err := processGeometryData(*value)
+					if err != nil {
+						fmt.Println("error", err)
+					}
+	
+					result[col] = json.RawMessage(geodata)
+	
+				}else{
+					result[col] =string(*value)
+				}
+	
+				// 
+			}
+	
+			results = append(results, result)
+		}
+		
+    }
+
+	fmt.Println(results)
+	return results, nil
+}
+
+
+

@@ -26,8 +26,18 @@ func main() {
 
 	}
 	defer deinit()
-	_, err := models.PerformOperation(db.PG.Db, models.BuildingTable.TableName, "shape__len", "Less than (<)","110")
-	if err != nil {
-		fmt.Println("Error occured",err)
+	// _, err := models.PerformOperation(db.PG.Db, models.BuildingTable.TableName, "shape__len", "Greater than (>)","5")
+	// if err != nil {
+	// 	fmt.Println("Error occured",err)
+	// }
+
+
+	data,err := models.SearchAllTables(db.PG.Db, "Car park")
+	if err!=nil{
+		fmt.Println("error occured",err)
+	}else{
+		fmt.Println(data)
 	}
+
+	
 }

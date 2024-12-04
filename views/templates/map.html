@@ -45,7 +45,7 @@
                     <input class = "search-value" placeholder="Enter Value">
                 </li>
                 <li>
-                    <input placeholder="Results">
+                    <input class ="advanced-query-results" placeholder="Results">
                 </li>
                 <button class="submit-query" style="margin-left: 120px;margin-right: 150px;">Submit</button>
             </ul>
@@ -275,8 +275,10 @@ $('.submit-query').click(function (e) {
         data: JSON.stringify(queryData),
         success: function (response) {
             if (response.success){
-                console.log("success full post",response.data[0].geom.coordinates)
+                console.log("success full post",response.data)
                 var data = response.data
+                console.log("length of data",data.length)
+                $(".advanced-query-results").val(data.length)
                 addGeoJsonLayer(data)
                 // for(var i=0;i<response.data.length;i++){
                 //     addGeoJsonLayer(data[i].geom)

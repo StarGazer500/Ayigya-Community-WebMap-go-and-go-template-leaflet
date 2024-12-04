@@ -12,5 +12,6 @@ func MapRoutes(route *gin.RouterGroup) {
 	route.POST("/featureattributes", controllers.FeatreAttributes)
 	route.POST("/featureoperatures", controllers.SelectOperator)
 	route.POST("/makeqquery", controllers.MakeQuery)
+	route.POST("/simplesearch", controllers.SimpleSearch)
 
 }

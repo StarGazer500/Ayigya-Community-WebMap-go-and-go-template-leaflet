@@ -351,7 +351,7 @@ func MakeQuery(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "query successful",
-			"data":data,
+			"data":    data,
 		})
 
 	} else {
@@ -367,3 +367,90 @@ func MakeQuery(ctx *gin.Context) {
 // func MakeQuery(ctx *gin.Context){
 
 // }
+
+func SimpleSearch(ctx *gin.Context) {
+	fmt.Println("controller reached")
+	if ctx.Request.Method == http.MethodPost {
+		fmt.Println("controller reached")
+		// Extract the raw request body
+		rawData, err := ctx.GetRawData()
+		if err != nil {
+			// If there's an error reading the body, return a bad request response
+			fmt.Println("rawdata", rawData)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Failed to read the request body",
+			})
+			return
+		}
+
+		// Define a map to hold the raw JSON data
+		var requestData map[string]interface{}
+
+		// Unmarshal the raw JSON data into the map
+		if err := json.Unmarshal(rawData, &requestData); err != nil {
+			// If there's an error unmarshalling the data, return an error response
+			fmt.Println(err)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid JSON format",
+			})
+			return
+		}
+
+		fmt.Println("received data", requestData)
+		fmt.Println(models.BuildingTable)
+
+		// Extract selectedLayer from requestData
+
+		searchValuer, exists := requestData["searchValue"].(string)
+		if !exists {
+			// If no selectedLayer is found, return an error
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "You are required to select featurelayer,attribute,operator and enter search value",
+			})
+			return
+		}
+
+		data, searcherr := models.SearchAllTables(db.PG.Db, searchValuer)
+
+		if searcherr != nil {
+
+			fmt.Println("operation error", searcherr)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "You Operation not successful",
+			})
+			return
+
+		}
+
+		fmt.Println(data)
+
+		// operationsJSON, operr := json.Marshal(operators)
+		// if operr != nil {
+
+		// 	fmt.Println("operator eror", operr)
+		// 	ctx.JSON(http.StatusBadRequest, gin.H{
+		// 		"success": false,
+		// 		"message": "Operator Error",
+		// 	})
+
+		// }
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "query successful",
+			"data":    data,
+		})
+
+	} else {
+		// If the request method is not POST, return an error
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Invalid HTTP method, expected POST",
+		})
+	}
+
+}
