@@ -34,16 +34,36 @@ function initializeMap() {
 
 
 
-function addGeoJsonLayer(data) {
+function addGeoJsonLayer1(data) {
     // Remove existing GeoJSON layers from the map and layer control
     if (geoJsonLayerGroup) {
         map.removeLayer(geoJsonLayerGroup);
         layerControl.removeLayer(geoJsonLayerGroup);
     }
-
+    
     // Recreate the feature group
     geoJsonLayerGroup = L.featureGroup();
-
+    
+    // Function to convert snake_case to Title Case
+    function formatKey(key) {
+        return key
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+    
+    // Function to format value based on key
+    function formatValue(key, value) {
+        // Handle specific formatting for known keys
+        const formatMap = {
+            'shape__len': `${value} meters`,
+            'shape__are': `${value} sq meters`,
+            'creationda': value ? new Date(value).toLocaleDateString() : value
+        };
+        
+        return formatMap[key] || value;
+    }
+    
     // Add new GeoJSON layers
     for(var i = 0; i < data.length; i++){
         var geoJsonLayer = L.geoJSON(data[i].geom, {
@@ -55,45 +75,41 @@ function addGeoJsonLayer(data) {
                 };
             },
             onEachFeature: function(feature, layer) {
-                // Create popup content with both shape__len and shape__area
-                var popupContent = `
-                    <div>
-                        <strong>Shape Length:</strong> ${data[i].shape__len.toFixed(2)} meters<br>
-                        <strong>Shape Area:</strong> ${data[i].shape__are.toFixed(2)} sq meters <br>
-                        <strong>Is Storey?:</strong> ${data[i].building_t} <br>
-                        <strong>building type:</strong> ${data[i].building_u} <br>
-                        <strong>Creation day:</strong> ${data[i].creationda} <br>
-                        <strong>Development Status:</strong> ${data[i].developmen} <br>
-                        <strong>Exact Use:</strong> ${data[i].exact_use} <br>
-                        <strong>Number of Story:</strong> ${data[i].num_storey} <br>
-                        <strong>Plot Number:</strong> ${data[i].plot_numbe} <br>
-                        <strong>Plot Number:</strong> ${data[i].remarks} <br>
-                    </div>
-                `;
-
-                // Bind popup 
+                // Dynamically generate popup content
+                var popupContent = '<div>';
+                
+                // Get all keys from the current data object
+                Object.keys(data[i]).forEach(key => {
+                    // Skip 'geom' key and keys with null/undefined/empty values
+                    if (key !== 'geom' && data[i][key] != null && data[i][key] !== '') {
+                        popupContent += `
+                            <strong>${formatKey(key)}:</strong> ${formatValue(key, data[i][key])}<br>
+                        `;
+                    }
+                });
+                
+                popupContent += '</div>';
+                
+                // Bind popup
                 layer.bindPopup(popupContent);
-
+                
                 // Optional: Add click event
                 layer.on('click', function(e) {
-                    console.log('Feature clicked:', {
-                        length: data[i].shape__len,
-                        area: data[i].shape__area
-                    });
+                    console.log('Feature clicked:', data[i]);
                 });
             }
         });
-
+        
         // Add layer to the feature group
         geoJsonLayerGroup.addLayer(geoJsonLayer);
     }
-
+    
     // Add feature group to the map
     geoJsonLayerGroup.addTo(map);
-
+    
     // Add to layer control
     layerControl.addOverlay(geoJsonLayerGroup, "GeoJSON Layers");
-
+    
     // Zoom to layers if any exist
     if (geoJsonLayerGroup.getLayers().length > 0) {
         map.fitBounds(geoJsonLayerGroup.getBounds(), {
@@ -103,7 +119,211 @@ function addGeoJsonLayer(data) {
     }
 }
 
+function addGeoJsonLayer(data) {
+    // Check if DataTable exists and destroy it if it does
+    if ($.fn.DataTable.isDataTable('#dataTable')) {
+        $('#dataTable').DataTable().destroy();
+    }
+    
+    // Diagnostic logging
+    console.log('addGeoJsonLayer called with data:', data);
+    
+    // Check for critical DOM elements
+    const tableHeader = document.getElementById('tableHeader');
+    const tableBody = document.getElementById('tableBody');
+    
+    if (!tableHeader || !tableBody) {
+        console.error('Table header or body not found. Check your HTML structure.');
+        return;
+    }
+    
+    // Check for map, layer control, and layer group
+    if (!map || !layerControl) {
+        console.error('Map or LayerControl not initialized');
+        return;
+    }
+    
+    // Check if data is empty
+    if (!data || data.length === 0) {
+        console.warn('No data provided to addGeoJsonLayer');
+        tableHeader.innerHTML = '';
+        tableBody.innerHTML = '';
+        return;
+    }
+    
+    // Remove existing GeoJSON layers from the map and layer control
+    if (geoJsonLayerGroup) {
+        map.removeLayer(geoJsonLayerGroup);
+        layerControl.removeLayer(geoJsonLayerGroup);
+    }
+    
+    // Recreate the feature group
+    geoJsonLayerGroup = L.featureGroup();
+    
+    // Clear existing table
+    tableHeader.innerHTML = '';
+    tableBody.innerHTML = '';
+    
+    // Function to convert snake_case to Title Case
+    function formatKey(key) {
+        return key
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+    
+    // Function to format value based on key
+    function formatValue(key, value) {
+        // Handle specific formatting for known keys
+        const formatMap = {
+            'shape__len': `${value} meters`,
+            'shape__are': `${value} sq meters`,
+            'creationda': value ? new Date(value).toLocaleDateString() : value
+        };
+        return formatMap[key] || value;
+    }
+    
+    // Prepare table headers dynamically
+    const headers = Object.keys(data[0]).filter(key => key !== 'geom');
+    console.log('Table headers:', headers);
+    
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = formatKey(header);
+        tableHeader.appendChild(th);
+    });
+    
+    // Prepare data for DataTables
+    const tableData = data.map((item, index) => {
+        const rowData = {};
+        headers.forEach(key => {
+            rowData[formatKey(key)] = formatValue(key, item[key]);
+        });
+        rowData.index = index; // Store index for map interaction
+        return rowData;
+    });
 
+    $('#map').css('height', '50vh');
+    $('.leaflet-control-results-control-input').css('bottom', '20px');
+     
+
+    
+    // Add new GeoJSON layers
+    for(var i = 0; i < data.length; i++){
+        // Create GeoJSON layer
+        var geoJsonLayer = L.geoJSON(data[i].geom, {
+            style: function(feature) {
+                return {
+                    color: 'blue',
+                    fillColor: 'blue',
+                    fillOpacity: 0.3
+                };
+            },
+            onEachFeature: function(feature, layer) {
+                // Dynamically generate popup content
+                var popupContent = '<div>';
+                Object.keys(data[i]).forEach(key => {
+                    if (key !== 'geom' && data[i][key] != null && data[i][key] !== '') {
+                        popupContent += `
+                            <strong>${formatKey(key)}:</strong> ${formatValue(key, data[i][key])}<br>
+                        `;
+                    }
+                });
+                popupContent += '</div>';
+                
+                // Bind popup
+                layer.bindPopup(popupContent);
+                
+                // Modify layer click to highlight corresponding row
+                layer.on('click', function(e) {
+                    // Trigger row selection in DataTable
+                    const dataTable = $('#dataTable').DataTable();
+                    const rowIndex = dataTable.rows().indexes().filter(function(idx) {
+                        return dataTable.row(idx).data().index === i;
+                    });
+                    
+                    if (rowIndex.length) {
+                        // Select the row
+                        dataTable.row(rowIndex[0]).select();
+                        
+                        // Zoom to layer
+                        map.fitBounds(layer.getBounds(), {
+                            padding: [50, 50],
+                            maxZoom: 15
+                        });
+                        
+                        // Open popup
+                        layer.openPopup();
+                        
+                        // Scroll to row
+                        const rowNode = dataTable.row(rowIndex[0]).node();
+                        rowNode.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
+                    }
+                });
+            }
+        });
+        
+        // Add layer to the feature group
+        geoJsonLayerGroup.addLayer(geoJsonLayer);
+    }
+    
+    // Add feature group to the map
+    geoJsonLayerGroup.addTo(map);
+    
+    // Add to layer control
+    layerControl.addOverlay(geoJsonLayerGroup, "GeoJSON Layers");
+    
+    // Zoom to layers if any exist
+    if (geoJsonLayerGroup.getLayers().length > 0) {
+        map.fitBounds(geoJsonLayerGroup.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 15
+        });
+    }
+    
+    // Initialize DataTable with additional features
+    const dataTable = $('#dataTable').DataTable({
+        data: tableData,
+        columns: [
+            ...headers.map(header => ({
+                data: formatKey(header),
+                title: formatKey(header)
+            }))
+        ],
+        select: {
+            style: 'single'
+        },
+        // Optional: Add more DataTables configurations as needed
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]]
+    });
+    
+    // Add click event to table rows to interact with map
+    $('#dataTable tbody').on('click', 'tr', function() {
+        const data = dataTable.row(this).data();
+        const index = data.index;
+        
+        // Get corresponding layer
+        const layerGroup = geoJsonLayerGroup.getLayers()[index];
+        
+        if (layerGroup) {
+            // Zoom to layer
+            map.fitBounds(layerGroup.getBounds(), {
+                padding: [50, 50],
+                maxZoom: 15
+            });
+            
+            // Open popup
+            layerGroup.openPopup();
+        }
+    });
+    
+    console.log('DataTable initialized with rows:', tableData.length);
+}
 
 
 initializeMap();
@@ -142,7 +362,7 @@ L.Control.SearchInput = L.Control.extend({
                                 // Process response here (e.g., adding GeoJSON layers)
                                 var data =  response.data
                                 $(".results-returned").val(data.length)
-                                addGeoJsonLayer(response.data);
+                                addGeoJsonLayer1(response.data);
                             } else {
                                 alert("No results found.");
                             }

@@ -32,11 +32,11 @@ func main() {
 	// }
 
 
-	data,err := models.SearchAllTables(db.PG.Db, "Car park")
+	_,err := models.SearchAllTables(db.PG.Db, "comp")
 	if err!=nil{
 		fmt.Println("error occured",err)
 	}else{
-		fmt.Println(data)
+		// fmt.Println(data)
 	}
 
 	

@@ -680,9 +680,11 @@ func ConvertGeometryToXY(geometry geom.T) geom.T {
 
 func SearchAllTables(db *sql.DB, searchTerm string) ([]map[string]interface{}, error) {
     // Query to get all table names and column names from the information schema
-    query := `SELECT table_name, column_name 
-              FROM information_schema.columns 
-              WHERE table_schema = 'public'` // You can specify a schema like 'public' or leave it out
+    query := `
+        SELECT table_name, column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+    `
 
     rows, err := db.Query(query)
     if err != nil {
@@ -691,82 +693,102 @@ func SearchAllTables(db *sql.DB, searchTerm string) ([]map[string]interface{}, e
     defer rows.Close()
 
     // Loop through each row in the result
-	var results []map[string]interface{}
+    var results []map[string]interface{}
     for rows.Next() {
         var tableName, columnName string
         if err := rows.Scan(&tableName, &columnName); err != nil {
-            return nil,err
+            return nil, err // Log the error and continue processing other tables
         }
 
-		querystring := fmt.Sprintf("SELECT * FROM \"%s\" WHERE %s = $1", tableName, columnName)
+		
 
-		// Execute the query with the parameterized query
-		rows, err := db.Query(querystring, searchTerm)
-	
-		if err != nil {
-			continue
-			// return nil, fmt.Errorf("query execution failed: %v", err)
-		}
-		defer rows.Close()
-	
-		// Step 6: Fetch the results
-		columns, err := rows.Columns()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get column names: %v", err)
-		}
-	
-		
-		for rows.Next() {
-			// Create a slice of empty interfaces to hold the row values
-			columnPointers := make([]interface{}, len(columns))
-			for i := range columnPointers {
-				columnPointers[i] = new([]byte)
-			}
-	
-			// Scan the row into the column pointers
-			if err := rows.Scan(columnPointers...); err != nil {
-				return nil, fmt.Errorf("failed to scan row: %v", err)
-			}
-	
-			// Convert row to map
-			result := make(map[string]interface{})
-			for i, col := range columns {
-	
-				value := columnPointers[i].(*[]byte)
-	
-				if col == "shape__len" || col == "shape__are" {
-					// fmt.Println("shape", (string(*value)))
-					tofloat, err := strconv.ParseFloat(string(*value), 64)
-					if err != nil {
-						fmt.Println("conversion failed", err)
-					} else {
-						result[col] = tofloat
-					}
-	
-				} else if col == "geom" {
-					// fmt.Println("geom", (string(*value)))
-					geodata, err := processGeometryData(*value)
-					if err != nil {
-						fmt.Println("error", err)
-					}
-	
-					result[col] = json.RawMessage(geodata)
-	
-				}else{
-					result[col] =string(*value)
-				}
-	
-				// 
-			}
-	
-			results = append(results, result)
-		}
-		
+		if tableName != "building" && tableName != "other_polygon_structure" {
+            // fmt.Println("Skipping table:", tableName) // Log which table is being skipped
+            continue // Skip this iteration and go to the next table
+        }
+
+        // Modify query to use ILIKE for case-insensitive search
+        querystring := fmt.Sprintf(
+            `SELECT * FROM "%s" WHERE "%s" ILIKE $1`, 
+            tableName, 
+            columnName,
+        )
+
+        // Execute the query with the parameterized search term
+        tableRows, err := db.Query(querystring, "%"+searchTerm+"%")
+        if err != nil {
+            fmt.Println("Error executing query for table:", tableName, err)
+            continue // Skip to the next table if this query fails
+        }
+        defer tableRows.Close()
+
+        columns, err := tableRows.Columns()
+        if err != nil {
+            fmt.Println("Error retrieving columns for table:", tableName, err)
+            continue // Skip to the next table if columns retrieval fails
+        }
+
+        // Loop through the rows of the current table
+        for tableRows.Next() {
+			// fmt.Println(tableName)
+			// fmt.Println("current table",tableName)
+			
+            // Create a slice of empty interfaces to hold the row values
+            columnPointers := make([]interface{}, len(columns))
+            for i := range columnPointers {
+                columnPointers[i] = new([]byte) // Allocate space for the values
+            }
+
+            // Scan the row into the column pointers
+            if err := tableRows.Scan(columnPointers...); err != nil {
+                fmt.Println("Error scanning row for table:", tableName, err)
+                continue // Skip this row if there's an error scanning it
+            }
+
+            // Convert the row to a map
+            result := make(map[string]interface{})
+            for i, col := range columns {
+                value := columnPointers[i].(*[]byte) // Dereference the value pointer
+
+                // Handle specific columns (e.g., shapelen, shapeare, geom)
+                if col == "shapelen" || col == "shapeare" {
+                    tofloat, err := strconv.ParseFloat(string(*value), 64)
+                    if err != nil {
+                        fmt.Println("Error parsing float for", col, err)
+                    } else {
+                        result[col] = tofloat
+                    }
+                } else if col == "geom" {
+                    geodata, err := processGeometryData(*value)
+                    if err != nil {
+                        fmt.Println("Error processing geometry data:", err)
+                    }
+                    result[col] = json.RawMessage(geodata)
+                } else {
+                    result[col] = string(*value)
+                }
+            }
+
+            // Append the result to the results slice
+            results = append(results, result)
+        }
+
+        // Check if there was an error during row iteration
+        if err := tableRows.Err(); err != nil {
+            fmt.Println("Error during row iteration for table:", tableName, err)
+        }
     }
 
+    // Check if there was an error during column iteration
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("Error during column iteration: %v", err)
+    }
+
+    // Return the results after iterating through all tables
 	fmt.Println(results)
-	return results, nil
+    return results, nil
 }
+
 
 
 
