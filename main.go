@@ -74,7 +74,7 @@ func main() {
 		engine.Static("/staticfiles", "./views/staticfiles")
 
 		// Start the server
-		engine.Run(":8080") // This starts the server on http://localhost:8080
+		engine.Run(":8082") // This starts the server on http://localhost:8080
 
 	// 	data,err := models.FindOne(db.PG.Db, models.BuildingTable.TableName, "name", "Salon")
 	// 	if err!=nil{
